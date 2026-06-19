@@ -1,4 +1,4 @@
-const STORAGE_KEY = "pocket_v2_state";
+const STORAGE_KEY = "airnote_state";
 
 const WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 const PERIODS = ["上午", "下午", "晚上"];
@@ -135,7 +135,7 @@ function loadState() {
       settings: { ...defaultState.settings, ...(parsed.settings || {}) },
     };
   } catch (error) {
-    console.warn("读取本地口袋数据失败，已回退到默认数据", error);
+    console.warn("读取本地 AirNote 数据失败，已回退到默认数据", error);
     return cloneDefaultState();
   }
 }
@@ -144,7 +144,7 @@ function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
-    console.warn("保存本地口袋数据失败，请尝试导出备份后清理浏览器存储", error);
+    console.warn("保存本地 AirNote 数据失败，请尝试导出备份后清理浏览器存储", error);
     showToast("本地存储失败，请先导出备份");
   }
 }
@@ -307,7 +307,7 @@ function saveCapture() {
       sunk: false,
       done: false,
     });
-    showToast(state.settings.target === "week" ? "已放进本周" : "已塞进口袋");
+    showToast(state.settings.target === "week" ? "已放进本周" : "已保存到 AirNote");
   }
 
   elements.captureInput.value = "";
@@ -597,7 +597,7 @@ function exportData() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `口袋备份-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `AirNote备份-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
   showToast("已导出 JSON");
@@ -626,7 +626,7 @@ function importData(event) {
       render();
       showToast("已导入");
     } catch (error) {
-      console.warn("导入口袋数据失败", error);
+      console.warn("导入 AirNote 数据失败", error);
       showToast("导入失败，文件格式不对");
     } finally {
       event.target.value = "";
@@ -648,7 +648,7 @@ function byFreshAndSunk(a, b) {
 }
 
 function createId() {
-  return `pocket-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `airnote-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function guessTitle(content) {
