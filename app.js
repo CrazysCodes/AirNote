@@ -386,6 +386,7 @@ function renderNoteCard(item) {
           <button class="action-link" type="button" data-action="copy">复制</button>
           <button class="action-link" type="button" data-action="edit">编辑</button>
           <button class="action-link" type="button" data-action="sink">${item.sunk ? "取消沉底" : "沉底"}</button>
+          <button class="action-link danger-link" type="button" data-action="delete">删除</button>
         </div>
       </div>
     </article>
@@ -429,6 +430,7 @@ function bindCardActions(container) {
       if (button.dataset.action === "copy") copyText(item.content);
       if (button.dataset.action === "edit") openEditSheet(item.id);
       if (button.dataset.action === "sink") toggleSink(item.id);
+      if (button.dataset.action === "delete") deleteItem(item.id);
     });
   });
 }
@@ -534,11 +536,8 @@ function sinkEditingItem() {
 function deleteEditingItem() {
   const item = getEditingItem();
   if (!item) return;
-  state.items = state.items.filter((entry) => entry.id !== item.id);
-  saveState();
+  deleteItem(item.id, false);
   closeEditSheet();
-  render();
-  showToast("已删除");
 }
 
 function getEditingItem() {
@@ -553,6 +552,16 @@ function toggleSink(id) {
   saveState();
   render();
   showToast(item.sunk ? "已沉底" : "已取消沉底");
+}
+
+function deleteItem(id, shouldConfirm = true) {
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item) return;
+  if (shouldConfirm && !window.confirm("确认删除这条记录？")) return;
+  state.items = state.items.filter((entry) => entry.id !== id);
+  saveState();
+  render();
+  showToast("已删除");
 }
 
 function copyCommonItem(item) {

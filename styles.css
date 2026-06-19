@@ -392,6 +392,10 @@ input[type="search"] {
   font-size: 13px;
 }
 
+.danger-link {
+  color: var(--danger);
+}
+
 .week-day {
   display: grid;
   gap: 8px;
