@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f8fafc" />
+    <title>口袋 - 轻日程口袋</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">轻日程口袋</p>
+          <h1>口袋</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" type="button" id="exportButton" aria-label="导出数据">⇩</button>
+          <label class="icon-button file-button" aria-label="导入数据">
+            ⇧
+            <input type="file" id="importInput" accept="application/json" />
+          </label>
+        </div>
+      </header>
+
+      <main>
+        <section class="page active" id="page-pocket" aria-label="口袋">
+          <section class="capture-panel">
+            <textarea id="captureInput" rows="4" placeholder="先塞进来..."></textarea>
+            <div class="segmented" id="targetTabs" role="tablist" aria-label="记录归属">
+              <button class="selected" type="button" data-target="today">今天</button>
+              <button type="button" data-target="week">本周</button>
+              <button type="button" data-target="common">常用</button>
+            </div>
+
+            <div class="week-fields hidden" id="weekFields">
+              <div>
+                <p class="field-label">周几</p>
+                <div class="chip-row" id="weekdayChips"></div>
+              </div>
+              <div>
+                <p class="field-label">时间段</p>
+                <div class="chip-row" id="periodChips"></div>
+              </div>
+              <label class="toggle-row">
+                <span>每周循环</span>
+                <input type="checkbox" id="recurringInput" />
+              </label>
+            </div>
+
+            <div class="common-fields hidden" id="commonFields">
+              <input id="commonTitleInput" type="text" placeholder="标题，例如：发票抬头" />
+              <div class="chip-row" id="categoryChips"></div>
+              <label class="toggle-row">
+                <span>隐藏敏感信息</span>
+                <input type="checkbox" id="sensitiveInput" />
+              </label>
+            </div>
+
+            <button class="primary-button" type="button" id="saveButton">保存</button>
+          </section>
+
+          <section class="section-block">
+            <div class="section-title">
+              <h2>最近塞入</h2>
+              <button class="text-button" type="button" id="clearDemoButton">清空示例</button>
+            </div>
+            <div class="item-list" id="recentList"></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-week" aria-label="本周">
+          <section class="section-block">
+            <div class="section-title">
+              <h2>本周安排</h2>
+              <p id="weekSummary"></p>
+            </div>
+            <div class="week-list" id="weekList"></div>
+          </section>
+        </section>
+
+        <section class="page" id="page-common" aria-label="常用复制">
+          <section class="section-block">
+            <input class="search-input" id="commonSearch" type="search" placeholder="搜索地址、回复、Prompt..." />
+            <div class="chip-row filter-row" id="commonFilterChips"></div>
+            <div class="item-list" id="commonList"></div>
+          </section>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="底部导航">
+        <button class="selected" type="button" data-tab="pocket">口袋</button>
+        <button type="button" data-tab="week">本周</button>
+        <button type="button" data-tab="common">常用复制</button>
+      </nav>
+    </div>
+
+    <div class="sheet-backdrop hidden" id="sheetBackdrop"></div>
+    <section class="bottom-sheet hidden" id="editSheet" aria-label="编辑记录">
+      <div class="sheet-handle"></div>
+      <div class="section-title">
+        <h2>编辑记录</h2>
+        <button class="icon-button" type="button" id="closeSheetButton" aria-label="关闭">×</button>
+      </div>
+      <textarea id="editContentInput" rows="4"></textarea>
+      <div class="segmented" id="editTargetTabs">
+        <button type="button" data-target="today">今天</button>
+        <button type="button" data-target="week">本周</button>
+        <button type="button" data-target="common">常用</button>
+      </div>
+      <div class="week-fields" id="editWeekFields">
+        <p class="field-label">周几</p>
+        <div class="chip-row" id="editWeekdayChips"></div>
+        <p class="field-label">时间段</p>
+        <div class="chip-row" id="editPeriodChips"></div>
+        <label class="toggle-row">
+          <span>每周循环</span>
+          <input type="checkbox" id="editRecurringInput" />
+        </label>
+      </div>
+      <div class="button-row">
+        <button class="secondary-button" type="button" id="copyEditButton">复制</button>
+        <button class="secondary-button" type="button" id="sinkEditButton">沉底</button>
+        <button class="danger-button" type="button" id="deleteEditButton">删除</button>
+        <button class="primary-button" type="button" id="saveEditButton">保存</button>
+      </div>
+    </section>
+
+    <section class="manual-copy hidden" id="manualCopyPanel" aria-live="polite">
+      <div class="section-title">
+        <h2>无法自动复制</h2>
+        <button class="icon-button" type="button" id="closeCopyPanelButton" aria-label="关闭">×</button>
+      </div>
+      <p>长按下方内容手动复制</p>
+      <textarea id="manualCopyText" rows="4" readonly></textarea>
+    </section>
+
+    <div class="toast hidden" id="toast"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
