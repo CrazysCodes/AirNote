@@ -158,6 +158,9 @@ function bindEvents() {
       state.settings.activeTab = button.dataset.tab;
       saveState();
       render();
+      if (state.settings.activeTab === "week") {
+        requestAnimationFrame(scrollWeekToToday);
+      }
     });
   });
 
@@ -336,9 +339,25 @@ function renderWeekList() {
   elements.weekSummary.textContent = `${weekItems.filter((item) => !isItemDone(item)).length} 条待完成`;
   elements.weekList.innerHTML = WEEKDAYS.map((weekday) => {
     const blocks = PERIODS.map((period) => renderTimeBlock(weekday, period, weekItems)).join("");
-    return `<div class="week-day"><div class="day-title">${weekday}</div>${blocks}</div>`;
+    return `<div class="week-day" data-weekday="${weekday}"><div class="day-title">${weekday}</div>${blocks}</div>`;
   }).join("");
   bindCardActions(elements.weekList);
+}
+
+/**
+ * 点击本周页时自动定位到今天。周日直接滚到最右侧，减少横向列表里的手动滑动。
+ */
+function scrollWeekToToday() {
+  const today = toChineseWeekday(new Date());
+  const dayColumn = elements.weekList.querySelector(`[data-weekday="${today}"]`);
+  if (!dayColumn) return;
+
+  const maxScrollLeft = Math.max(0, elements.weekList.scrollWidth - elements.weekList.clientWidth);
+  const targetLeft = today === "周日" ? maxScrollLeft : dayColumn.offsetLeft - elements.weekList.offsetLeft;
+  elements.weekList.scrollTo({
+    left: Math.max(0, Math.min(targetLeft, maxScrollLeft)),
+    behavior: "smooth",
+  });
 }
 
 function renderTimeBlock(weekday, period, weekItems) {
