@@ -17,6 +17,7 @@ const defaultState = {
       updatedAt: "2026-06-18T09:30:00.000Z",
       sunk: false,
       done: false,
+      doneWeekKey: "",
     },
     {
       id: "demo-week-2",
@@ -29,6 +30,7 @@ const defaultState = {
       updatedAt: "2026-06-18T12:30:00.000Z",
       sunk: false,
       done: false,
+      doneWeekKey: "",
     },
     {
       id: "demo-today-1",
@@ -41,6 +43,7 @@ const defaultState = {
       updatedAt: "2026-06-18T10:20:00.000Z",
       sunk: false,
       done: false,
+      doneWeekKey: "",
     },
   ],
   commonItems: [
@@ -130,7 +133,7 @@ function loadState() {
     if (!raw) return cloneDefaultState();
     const parsed = JSON.parse(raw);
     return {
-      items: Array.isArray(parsed.items) ? parsed.items : [],
+      items: Array.isArray(parsed.items) ? parsed.items.map(normalizeItem) : [],
       commonItems: Array.isArray(parsed.commonItems) ? parsed.commonItems : [],
       settings: { ...defaultState.settings, ...(parsed.settings || {}) },
     };
@@ -179,7 +182,6 @@ function bindEvents() {
     const item = getEditingItem();
     if (item) copyText(item.content);
   });
-  $("#sinkEditButton").addEventListener("click", sinkEditingItem);
   $("#deleteEditButton").addEventListener("click", deleteEditingItem);
   $("#closeCopyPanelButton").addEventListener("click", closeManualCopy);
 
@@ -306,6 +308,7 @@ function saveCapture() {
       updatedAt: now,
       sunk: false,
       done: false,
+      doneWeekKey: "",
     });
     showToast(state.settings.target === "week" ? "已放进本周" : "已保存到 AirNote");
   }
@@ -320,7 +323,7 @@ function saveCapture() {
 
 function renderRecentList() {
   const items = [...state.items]
-    .sort(byFreshAndSunk)
+    .sort(byTaskAttention)
     .slice(0, 8);
   elements.recentList.innerHTML = items.length
     ? items.map(renderNoteCard).join("")
@@ -330,7 +333,7 @@ function renderRecentList() {
 
 function renderWeekList() {
   const weekItems = state.items.filter((item) => item.target === "week");
-  elements.weekSummary.textContent = `${weekItems.filter((item) => !item.sunk).length} 条未沉底`;
+  elements.weekSummary.textContent = `${weekItems.filter((item) => !isItemDone(item)).length} 条待完成`;
   elements.weekList.innerHTML = WEEKDAYS.map((weekday) => {
     const blocks = PERIODS.map((period) => renderTimeBlock(weekday, period, weekItems)).join("");
     return `<div class="week-day"><div class="day-title">${weekday}</div>${blocks}</div>`;
@@ -341,13 +344,13 @@ function renderWeekList() {
 function renderTimeBlock(weekday, period, weekItems) {
   const items = weekItems
     .filter((item) => item.weekday === weekday && item.period === period)
-    .sort(byFreshAndSunk);
+    .sort(byTaskAttention);
   const body = items.length
     ? items.map(renderNoteCard).join("")
     : `<div class="empty-block">${period}还空着</div>`;
   return `
     <div class="time-block">
-      <div class="time-head"><span>${period}</span><span>${items.filter((item) => !item.sunk).length}</span></div>
+      <div class="time-head"><span>${period}</span><span>${items.filter((item) => !isItemDone(item)).length}</span></div>
       <div class="time-items">${body}</div>
     </div>
   `;
@@ -372,20 +375,23 @@ function renderCommonList() {
 
 function renderNoteCard(item) {
   const when = item.target === "week" ? `${item.weekday}${item.period}` : item.target === "today" ? "今天" : "常用";
+  const done = isItemDone(item);
+  const overdue = isItemOverdue(item);
   return `
-    <article class="note-card${item.sunk ? " sunk" : ""}" data-id="${item.id}">
+    <article class="note-card${done ? " done" : ""}${overdue ? " overdue" : ""}" data-id="${item.id}">
       <div class="card-main">
         <div class="card-text">${escapeHtml(item.content)}</div>
         <div class="card-meta">
           <span class="tag">${when}</span>
           ${item.recurring ? `<span class="tag">每周循环</span>` : ""}
-          ${item.sunk ? `<span class="tag">已沉底</span>` : ""}
+          ${done ? `<span class="tag done-tag">已完成</span>` : ""}
+          ${overdue ? `<span class="tag danger-tag">已逾期</span>` : ""}
           <span>${formatTime(item.updatedAt || item.createdAt)}</span>
         </div>
         <div class="card-actions">
+          <button class="action-link done-link" type="button" data-action="done">${done ? "↺ 取消" : "✓ 完成"}</button>
           <button class="action-link" type="button" data-action="copy">复制</button>
           <button class="action-link" type="button" data-action="edit">编辑</button>
-          <button class="action-link" type="button" data-action="sink">${item.sunk ? "取消沉底" : "沉底"}</button>
           <button class="action-link danger-link" type="button" data-action="delete">删除</button>
         </div>
       </div>
@@ -427,9 +433,9 @@ function bindCardActions(container) {
       if (!button) return;
       const item = state.items.find((entry) => entry.id === card.dataset.id);
       if (!item) return;
+      if (button.dataset.action === "done") toggleDone(item.id);
       if (button.dataset.action === "copy") copyText(item.content);
       if (button.dataset.action === "edit") openEditSheet(item.id);
-      if (button.dataset.action === "sink") toggleSink(item.id);
       if (button.dataset.action === "delete") deleteItem(item.id);
     });
   });
@@ -493,6 +499,7 @@ function saveEdit() {
   if (!item) return;
   item.content = elements.editContentInput.value.trim();
   item.recurring = item.target === "week" ? elements.editRecurringInput.checked : false;
+  if (!item.recurring) item.doneWeekKey = "";
   item.updatedAt = new Date().toISOString();
   if (!item.content) {
     showToast("内容不能为空");
@@ -522,17 +529,6 @@ function saveEdit() {
   showToast("已保存");
 }
 
-function sinkEditingItem() {
-  const item = getEditingItem();
-  if (!item) return;
-  item.sunk = !item.sunk;
-  item.updatedAt = new Date().toISOString();
-  saveState();
-  closeEditSheet();
-  render();
-  showToast(item.sunk ? "已沉底" : "已取消沉底");
-}
-
 function deleteEditingItem() {
   const item = getEditingItem();
   if (!item) return;
@@ -544,14 +540,24 @@ function getEditingItem() {
   return state.items.find((item) => item.id === editingItemId);
 }
 
-function toggleSink(id) {
+/**
+ * 切换待办完成状态。循环事项只记录当前周完成，避免下周继续灰掉。
+ */
+function toggleDone(id) {
   const item = state.items.find((entry) => entry.id === id);
   if (!item) return;
-  item.sunk = !item.sunk;
+  if (item.recurring) {
+    const currentWeekKey = getWeekKey(new Date());
+    item.doneWeekKey = item.doneWeekKey === currentWeekKey ? "" : currentWeekKey;
+    item.done = false;
+  } else {
+    item.done = !Boolean(item.done);
+    item.doneWeekKey = "";
+  }
   item.updatedAt = new Date().toISOString();
   saveState();
   render();
-  showToast(item.sunk ? "已沉底" : "已取消沉底");
+  showToast(isItemDone(item) ? "已完成" : "已取消完成");
 }
 
 function deleteItem(id, shouldConfirm = true) {
@@ -627,7 +633,7 @@ function importData(event) {
         throw new Error("Invalid pocket data");
       }
       state = {
-        items: imported.items,
+        items: imported.items.map(normalizeItem),
         commonItems: imported.commonItems,
         settings: { ...defaultState.settings, ...(imported.settings || {}) },
       };
@@ -652,8 +658,88 @@ function clearDemoData() {
   showToast("示例已清空");
 }
 
-function byFreshAndSunk(a, b) {
-  return Number(a.sunk) - Number(b.sunk) || new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt);
+function byTaskAttention(a, b) {
+  return (
+    Number(isItemDone(a)) - Number(isItemDone(b)) ||
+    Number(isItemOverdue(b)) - Number(isItemOverdue(a)) ||
+    new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+  );
+}
+
+/**
+ * 兼容旧 localStorage 数据。旧的 sunk 只保留字段，不再参与 UI 逻辑。
+ */
+function normalizeItem(item) {
+  const source = item && typeof item === "object" ? item : {};
+  return {
+    id: source.id || createId(),
+    content: source.content || "",
+    target: source.target || "today",
+    weekday: source.weekday || "",
+    period: source.period || "",
+    recurring: Boolean(source.recurring),
+    createdAt: source.createdAt || new Date().toISOString(),
+    updatedAt: source.updatedAt || source.createdAt || new Date().toISOString(),
+    sunk: Boolean(source.sunk),
+    done: Boolean(source.done),
+    doneWeekKey: source.doneWeekKey || "",
+  };
+}
+
+/**
+ * 判断记录是否完成。每周循环只认当前周的 doneWeekKey，跨周自动恢复未完成。
+ */
+function isItemDone(item) {
+  if (item.recurring) {
+    return item.doneWeekKey === getWeekKey(new Date());
+  }
+  return Boolean(item.done);
+}
+
+/**
+ * 判断记录是否逾期。V1 没有具体时间，所以只按日期和周几判断，不按上午/下午/晚上切分。
+ */
+function isItemOverdue(item) {
+  if (isItemDone(item)) return false;
+  if (item.target === "today") {
+    return startOfLocalDay(item.createdAt) < startOfLocalDay(new Date());
+  }
+  if (item.target === "week") {
+    const itemWeekdayIndex = getWeekdayIndex(item.weekday);
+    const todayWeekdayIndex = getWeekdayIndex(toChineseWeekday(new Date()));
+    return itemWeekdayIndex >= 0 && itemWeekdayIndex < todayWeekdayIndex;
+  }
+  return false;
+}
+
+function getWeekdayIndex(weekday) {
+  return WEEKDAYS.indexOf(weekday);
+}
+
+function toChineseWeekday(date) {
+  return WEEKDAYS[(date.getDay() + 6) % 7];
+}
+
+function startOfLocalDay(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return new Date(0);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+/**
+ * 生成 ISO 周键，用于让循环事项的完成状态只在当前自然周生效。
+ */
+function getWeekKey(value) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const dayOffset = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - dayOffset + 3);
+  const firstThursday = new Date(date.getFullYear(), 0, 4);
+  const firstDayOffset = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - firstDayOffset + 3);
+  const week = 1 + Math.round((date - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+  return `${date.getFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
 function createId() {

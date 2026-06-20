@@ -343,8 +343,19 @@ input[type="search"] {
   padding: 10px;
 }
 
-.note-card.sunk {
-  opacity: 0.55;
+.note-card.done {
+  background: #f8fafc;
+  color: var(--muted);
+  opacity: 0.72;
+}
+
+.note-card.done .card-text {
+  text-decoration: line-through;
+}
+
+.note-card.overdue {
+  border-color: #fecaca;
+  background: #fff7f7;
 }
 
 .card-main {
@@ -393,6 +404,21 @@ input[type="search"] {
 }
 
 .danger-link {
+  color: var(--danger);
+}
+
+.done-link {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.done-tag {
+  background: #e2e8f0;
+  color: var(--muted);
+}
+
+.danger-tag {
+  background: #fee2e2;
   color: var(--danger);
 }
 
