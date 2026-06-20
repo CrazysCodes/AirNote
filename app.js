@@ -73,6 +73,8 @@ const defaultState = {
     target: "today",
     weekday: "周一",
     period: "上午",
+    weekdays: ["周一"],
+    periods: ["上午"],
     commonCategory: "回复",
     commonFilter: "全部",
   },
@@ -207,13 +209,15 @@ function bindEvents() {
 }
 
 function renderChoiceChips() {
-  renderChipGroup(elements.weekdayChips, WEEKDAYS, state.settings.weekday, (value) => {
-    state.settings.weekday = value;
+  renderChipGroup(elements.weekdayChips, WEEKDAYS, getSelectedWeekdays(), (value) => {
+    state.settings.weekdays = toggleRequiredValue(getSelectedWeekdays(), value);
+    state.settings.weekday = state.settings.weekdays[0];
     saveState();
     renderChoiceChips();
   });
-  renderChipGroup(elements.periodChips, PERIODS, state.settings.period, (value) => {
-    state.settings.period = value;
+  renderChipGroup(elements.periodChips, PERIODS, getSelectedPeriods(), (value) => {
+    state.settings.periods = toggleRequiredValue(getSelectedPeriods(), value);
+    state.settings.period = state.settings.periods[0];
     saveState();
     renderChoiceChips();
   });
@@ -242,10 +246,11 @@ function renderEditChoiceChips(item) {
 
 function renderChipGroup(container, values, selectedValue, onSelect) {
   container.innerHTML = "";
+  const selectedValues = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
   values.forEach((value) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `chip${value === selectedValue ? " selected" : ""}`;
+    button.className = `chip${selectedValues.includes(value) ? " selected" : ""}`;
     button.textContent = value;
     button.addEventListener("click", () => onSelect(value));
     container.appendChild(button);
@@ -299,21 +304,18 @@ function saveCapture() {
       lastCopiedAt: "",
     });
     showToast("已放到常用复制");
+  } else if (state.settings.target === "week") {
+    const newItems = createWeekItems(content, now);
+    state.items.unshift(...newItems);
+    showToast(newItems.length > 1 ? `已放进本周 ${newItems.length} 条` : "已放进本周");
   } else {
-    state.items.unshift({
-      id: createId(),
+    state.items.unshift(createBaseItem({
       content,
-      target: state.settings.target,
-      weekday: state.settings.target === "week" ? state.settings.weekday : "",
-      period: state.settings.target === "week" ? state.settings.period : "",
-      recurring: state.settings.target === "week" ? elements.recurringInput.checked : false,
+      target: "today",
       createdAt: now,
       updatedAt: now,
-      sunk: false,
-      done: false,
-      doneWeekKey: "",
-    });
-    showToast(state.settings.target === "week" ? "已放进本周" : "已保存到 AirNote");
+    }));
+    showToast("已保存到 AirNote");
   }
 
   elements.captureInput.value = "";
@@ -322,6 +324,64 @@ function saveCapture() {
   elements.recurringInput.checked = false;
   saveState();
   render();
+}
+
+/**
+ * 保存本周时按“周几 × 时间段”批量生成记录，数据层仍保持一条事项一个时间块。
+ */
+function createWeekItems(content, now) {
+  const weekdays = getSelectedWeekdays();
+  const periods = getSelectedPeriods();
+  return weekdays.flatMap((weekday) =>
+    periods.map((period) =>
+      createBaseItem({
+        content,
+        target: "week",
+        weekday,
+        period,
+        recurring: elements.recurringInput.checked,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    ),
+  );
+}
+
+function createBaseItem(item) {
+  return {
+    id: createId(),
+    content: item.content,
+    target: item.target,
+    weekday: item.weekday || "",
+    period: item.period || "",
+    recurring: Boolean(item.recurring),
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    sunk: false,
+    done: false,
+    doneWeekKey: "",
+  };
+}
+
+function getSelectedWeekdays() {
+  return normalizeSelection(state.settings.weekdays, WEEKDAYS, state.settings.weekday);
+}
+
+function getSelectedPeriods() {
+  return normalizeSelection(state.settings.periods, PERIODS, state.settings.period);
+}
+
+function normalizeSelection(values, allowedValues, fallbackValue) {
+  const selectedValues = Array.isArray(values) ? values.filter((value) => allowedValues.includes(value)) : [];
+  if (selectedValues.length) return selectedValues;
+  return [allowedValues.includes(fallbackValue) ? fallbackValue : allowedValues[0]];
+}
+
+function toggleRequiredValue(values, value) {
+  if (values.includes(value)) {
+    return values.length === 1 ? values : values.filter((entry) => entry !== value);
+  }
+  return [...values, value];
 }
 
 function renderRecentList() {
