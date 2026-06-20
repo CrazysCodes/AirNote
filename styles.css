@@ -424,8 +424,11 @@ input[type="search"] {
 
 .week-day {
   display: grid;
+  grid-template-rows: auto repeat(3, minmax(0, 1fr));
   gap: 8px;
   align-content: start;
+  height: min(680px, calc(100vh - 170px));
+  min-height: 520px;
   scroll-snap-align: start;
 }
 
@@ -442,8 +445,10 @@ input[type="search"] {
 }
 
 .time-block {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
-  min-height: 134px;
+  min-height: 0;
 }
 
 .time-head {
@@ -459,8 +464,13 @@ input[type="search"] {
 
 .time-items {
   display: grid;
+  align-content: start;
   gap: 6px;
   padding: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .empty-block {
